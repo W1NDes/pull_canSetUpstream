@@ -100,6 +100,7 @@ to yours using **hard reset** periodically. You can also manually
    rules: # Array of rules
      - base: master # Required. Target branch
        upstream: wei:master # Required. Must be in the same fork network.
+       upstream_repo_name: different-repo # Optional. Upstream repository name if different from current repo.
        mergeMethod: hardreset # Optional, one of [none, merge, squash, rebase, hardreset], Default: none.
        mergeUnstable: false # Optional, merge pull request even when the mergeable_state is not clean. Default: false
      - base: dev

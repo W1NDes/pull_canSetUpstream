@@ -280,6 +280,20 @@ export class Pull {
   }
 
   private async getOpenPR(base: string, head: string) {
+    // Find the rule for this base and upstream
+    const rule = this.config.rules.find(r => 
+      r.base.toLowerCase() === base.toLowerCase() && 
+      r.upstream.toLowerCase() === head.toLowerCase()
+    );
+    
+    // Split head into owner and branch
+    const [headOwner, headBranch] = head.split(':');
+    
+    // Form the head label based on whether we have a custom repo name
+    const headRef = rule?.upstream_repo_name ? 
+      `${headOwner}:${rule.upstream_repo_name}:${headBranch}` : 
+      head;
+      
     const res = await this.github.issues.listForRepo({
       owner: this.owner,
       repo: this.repo,
@@ -296,12 +310,17 @@ export class Pull {
         pull_number: issue.number,
       });
 
+      // Compare using our custom headRef format
+      const matchesHead = rule?.upstream_repo_name ?
+        pr.data.head.label.includes(rule.upstream_repo_name) && 
+        pr.data.head.label.includes(headOwner) :
+        pr.data.head.label.replace(`${this.owner}:`, "") === head.replace(`${this.owner}:`, "");
+
       if (
         pr.data.user.login === appConfig.botName &&
-        pr.data.base.label.replace(`${this.owner}:`, "") ===
+        pr.data.base.label.replace(`${this.owner}:`, "") === 
           base.replace(`${this.owner}:`, "") &&
-        pr.data.head.label.replace(`${this.owner}:`, "") ===
-          head.replace(`${this.owner}:`, "")
+        matchesHead
       ) {
         return pr.data;
       }
@@ -316,13 +335,30 @@ export class Pull {
     reviewers: string[],
   ) {
     try {
+      // Find the rule for this base and upstream
+      const rule = this.config.rules.find(r => 
+        r.base.toLowerCase() === base.toLowerCase() && 
+        r.upstream.toLowerCase() === upstream.toLowerCase()
+      );
+      
+      // Use custom repo name if provided, otherwise use current repo name
+      const upstreamRepoName = rule?.upstream_repo_name || this.repo;
+      
+      // Split upstream into owner and branch
+      const [upstreamOwner, upstreamBranch] = upstream.split(':');
+      
+      // Form the head parameter based on whether we have a custom repo name
+      const headRef = rule?.upstream_repo_name ? 
+        `${upstreamOwner}:${upstreamRepoName}:${upstreamBranch}` : 
+        upstream;
+        
       const createdPR = await this.github.pulls.create({
         owner: this.owner,
         repo: this.repo,
-        head: upstream,
+        head: headRef,
         base,
         maintainer_can_modify: false,
-        title: getPRTitle(base, upstream),
+        title: getPRTitle(base, upstream + (rule?.upstream_repo_name ? ` (${upstreamRepoName})` : '')),
         body: getPRBody(this.fullName),
       });
 
